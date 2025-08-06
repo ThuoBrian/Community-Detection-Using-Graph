@@ -4,35 +4,33 @@ use petgraph::prelude::*;
 use std::collections::HashMap;
 
 fn main() {
-    // Create a new directed Graph
+    // Create a directed graph where nodes are Twitter usernames
     let mut graph = DiGraph::<&str, &str>::new();
+    let mut node_indices = HashMap::new();
 
-    // Create a HashMap to store node indices by user name
-    let mut nodes = HashMap::new();
-
-    // Iterate over the data to populate the graph
+    // Add nodes and edges based on consecutive usernames
     for window in TWITTER_USERNAMES.windows(2) {
         let user = window[0];
         let mention = window[1];
 
-        // Add the nodes to the graph and to the HashMap
-        let user_node = *nodes.entry(user).or_insert_with(|| graph.add_node(user));
-        let mention_node = *nodes
-            .entry(mention)
-            .or_insert_with(|| graph.add_node(mention));
+        let user_idx = *node_indices.entry(user).or_insert_with(|| graph.add_node(user));
+        let mention_idx = *node_indices.entry(mention).or_insert_with(|| graph.add_node(mention));
 
-        // Add the edge to the graph
-        graph.add_edge(user_node, mention_node, "retweets");
+        graph.add_edge(user_idx, mention_idx, "retweets");
     }
 
-    // Use the Kosaraju's algorithm to detect strongly connected components
-    let scc = kosaraju_scc(&graph);
-    for component in scc {
-        println!("{} nodes in community discovered", component.len());
-        let usernames: Vec<&str> = component
-            .iter()
-            .map(|&node_index| graph[node_index])
-            .collect();
-        println!("{:?}", usernames);
+    // Find strongly connected components (communities)
+    let components = kosaraju_scc(&graph);
+
+    // Print all communities
+    for community in &components {
+        let usernames: Vec<&str> = community.iter().map(|&idx| graph[idx]).collect();
+        println!("\nCommunity ({} users): {:?}", usernames.len(), usernames);
+    }
+
+    // Find and print the largest community
+    if let Some(largest) = components.iter().max_by_key(|c| c.len()) {
+        let largest_usernames: Vec<&str> = largest.iter().map(|&idx| graph[idx]).collect();
+        println!("\n🌟 Largest Community ({} users): {:?}", largest_usernames.len(), largest_usernames);
     }
 }
